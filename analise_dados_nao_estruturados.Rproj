@@ -1,0 +1,100 @@
+library(pdftools)
+library(stringr)
+library(dplyr)
+library(NLP)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(ggplot2)
+library(SnowballC)
+
+pdf<- ("C:/Users/Monique Emídio/Desktop/Ciência de dados/relatorio.pdf")
+txt<- pdf_text(pdf)
+cat(txt)
+
+valor<- ""
+
+# for criado para colocar todas as páginas do pdf único nível string
+for(i in 1:36){
+  if(!is.null(txt[i])){
+    valor<- paste (valor,txt[i],sep="\n")
+  }
+}
+
+valor
+
+
+tabelaTxt<-valor %>%
+  strsplit("\n")%>%
+  .[[1]] #para o retorno estar tudo no mesmo nível e não em lista e sublista
+print(tabelaTxt)
+
+dtTrabalho<-tabelaTxt %>%
+  as_tibble()%>%
+  rename(Linhas=value)
+print(dtTrabalho)
+
+#retirando as linhas em branco do tribble
+dtTrabalho<-dtTrabalho %>% select (Linhas) %>%
+  filter(!Linhas=="")
+print(dtTrabalho)
+
+corpus<- Corpus(VectorSource(dtTrabalho))
+length(corpus)
+inspect(corpus)
+
+#transforma a capitalização dos tokens
+corpus<-tm_map(corpus,content_transformer(tolower))
+
+#remove as pontuações
+corpus<-tm_map(corpus,removePunctuation)
+
+#remove os números
+corpus<-tm_map(corpus,removeNumbers)
+
+#elimina os stopwords
+corpus<-tm_map(corpus,removeWords,stopwords('portuguese'))
+
+#reduza ao radica
+corpus<- tm_map(corpus,stemDocument)
+
+#Representação por frequência de termos
+tf<-TermDocumentMatrix(corpus,control=list(minWordLenght=1,minDocFreq=2))
+length(tf)
+inspect(tf)
+
+#Wordcloud
+m<-as.matrix(tf)
+
+#calcula a frequência das palavras
+v<-sort(rowSums(m),decreasing = TRUE)
+myNames<-names(v)
+k<-which(names(v)=="miners")
+myNames[k]<-"mining"
+d<-data.frame(word=myNames,freq=v)
+
+#nuvem de palavras
+wordcloud(d$word,d$freq,min.freq = 10,colors = brewer.pal(8,"Dark2"))
+
+#nuvem de palavras segundo layout
+wordcloud(d$word,d$freq,min.freq = 10,
+          random.order = TRUE,colors = brewer.pal(8,"Dark2"),
+          use.r.layout = TRUE,rot.per = 0.3)
+
+palavra<-d$word
+frequencia<-d$freq
+bd<-data.frame(palavra,frequencia)
+gr<-bd[1:10,]
+
+#grafico de barras
+graficoFreq<-ggplot(gr,aes(x=palavra,y=frequencia,fill=palavra))+
+  geom_bar(stat = "identity")+
+  guides(fill="none")
+graficoFreq
+
+
+
+
+
+
+
